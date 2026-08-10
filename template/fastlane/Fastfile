@@ -27,6 +27,15 @@ ROOT = ExpoConfig::ROOT
 platform :ios do
   desc "Archive + export a signed IPA (release build_number:42 upload:true distribution:ad-hoc)"
   lane :release do |options|
+    # readonly by default in CI: only download what the cert repo already
+    # holds. With a write deploy key, MATCH_READONLY=false lets match create
+    # or repair the App Store profile right from CI (needs the ASC api key).
+    #
+    # Read *before* setup_ci: that action overwrites ENV["MATCH_READONLY"]
+    # with "true" unconditionally (an `=`, not the `||=` setup_jenkins uses),
+    # so reading it afterwards would silently ignore match-readonly: false.
+    match_readonly = ENV["MATCH_READONLY"].nil? ? is_ci : ENV["MATCH_READONLY"] == "true"
+
     setup_ci if is_ci # fresh unlocked keychain for match to install into
 
     # app-store (default) or ad-hoc. Both sign with the Apple Distribution
@@ -98,15 +107,11 @@ platform :ios do
       )
     end
 
-    # readonly by default in CI: only download what the cert repo already
-    # holds. With a write deploy key, MATCH_READONLY=false lets match create
-    # or repair the App Store profile right from CI (needs the ASC api key).
-    readonly = ENV["MATCH_READONLY"].nil? ? is_ci : ENV["MATCH_READONLY"] == "true"
     match(
       type: match_type,
       git_url: ENV.fetch("MATCH_GIT_URL"),
       api_key: api_key,
-      readonly: readonly
+      readonly: match_readonly
     )
 
     # Prebuild generates the project with automatic signing, which would mint
