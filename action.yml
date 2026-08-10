@@ -43,6 +43,14 @@ inputs:
   asc-key-p8-base64:
     description: App Store Connect API key (.p8), base64-encoded.
     required: true
+  distribution:
+    description: >-
+      "app-store" (default) or "ad-hoc". Both sign with the Apple
+      Distribution certificate; ad-hoc pulls the adhoc profile from the cert
+      repo instead and exports an IPA installable on registered devices.
+      Ad-hoc builds cannot upload to TestFlight — set upload to "false".
+    required: false
+    default: "app-store"
   build-number:
     description: CFBundleVersion for this build. Defaults to github.run_number.
     required: false
@@ -128,6 +136,7 @@ runs:
         APP_IDENTIFIER: ${{ inputs.app-identifier }}
         APPLE_TEAM_ID: ${{ inputs.team-id }}
         EXPO_PREBUILD_COMMAND: ${{ inputs.prebuild-command }}
+        DISTRIBUTION: ${{ inputs.distribution }}
         BUILD_NUMBER: ${{ inputs.build-number || github.run_number }}
         UPLOAD: ${{ inputs.upload }}
       run: |

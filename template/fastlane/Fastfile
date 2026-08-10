@@ -25,9 +25,16 @@ default_platform(:ios)
 ROOT = ExpoConfig::ROOT
 
 platform :ios do
-  desc "Archive + export a signed IPA (release build_number:42 upload:true)"
+  desc "Archive + export a signed IPA (release build_number:42 upload:true distribution:ad-hoc)"
   lane :release do |options|
     setup_ci if is_ci # fresh unlocked keychain for match to install into
+
+    # app-store (default) or ad-hoc. Both sign with the Apple Distribution
+    # certificate; only the profile type and export method differ. match
+    # spells the profile type without the hyphen.
+    distribution = (options[:distribution] || ExpoConfig.env("DISTRIBUTION") || "app-store").to_s
+    match_type = { "app-store" => "appstore", "ad-hoc" => "adhoc" }[distribution]
+    UI.user_error!("distribution must be app-store or ad-hoc, got '#{distribution}'") unless match_type
 
     # The Appfile sets the identifiers only when it can resolve them (its own
     # raise would be swallowed by try_fetch_value), so validate here, up
@@ -58,6 +65,7 @@ platform :ios do
       end
     end
     # Fail before the 20-minute archive, not after it.
+    UI.user_error!("upload:true (TestFlight) requires app-store distribution") if upload && distribution != "app-store"
     UI.user_error!("upload:true needs the ASC_* API key variables set") if upload && api_key.nil?
 
     if build_number && !ExpoConfig.stamp_build_number(build_number)
@@ -83,7 +91,7 @@ platform :ios do
     # or repair the App Store profile right from CI (needs the ASC api key).
     readonly = ENV["MATCH_READONLY"].nil? ? is_ci : ENV["MATCH_READONLY"] == "true"
     match(
-      type: "appstore",
+      type: match_type,
       git_url: ENV.fetch("MATCH_GIT_URL"),
       api_key: api_key,
       readonly: readonly
@@ -106,7 +114,7 @@ platform :ios do
       workspace: workspace,
       scheme: File.basename(workspace, ".xcworkspace"),
       configuration: "Release",
-      export_method: "app-store",
+      export_method: distribution,
       export_options: { provisioningProfiles: profiles },
       output_directory: File.join(ROOT, "ios/build/ipa")
     )

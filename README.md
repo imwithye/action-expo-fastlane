@@ -109,6 +109,7 @@ jobs:
 | `match-deploy-key` | no | | SSH private key that can read the cert repo |
 | `match-readonly` | no | `true` | `false` lets match create/repair certs and profiles (needs a write key) |
 | `working-directory` | no | `.` | Directory of the Expo project |
+| `distribution` | no | `app-store` | `ad-hoc` exports for registered devices (set `upload: false`) |
 | `build-number` | no | `github.run_number` | CFBundleVersion for this build |
 | `upload` | no | `true` | Upload to TestFlight |
 | `xcode-version` | no | runner default | Xcode version to select |
@@ -142,5 +143,11 @@ jobs:
   and runs `bundle exec fastlane ios release`. The `ipa-path` output is
   found by searching the working directory for `*.ipa`, so a custom output
   location still works.
+- **Ad-hoc builds:** `distribution: ad-hoc` signs against the cert repo's
+  adhoc profile and exports an IPA installable on the devices registered in
+  the profile. TestFlight is app-store-only, so set `upload: false`. Seed
+  the profile once with `fastlane match adhoc` (or use `match-readonly:
+  false`), and re-run that after registering new devices —
+  `fastlane match adhoc --force_for_new_devices` picks them up.
 - **Version bumps** (`CFBundleShortVersionString`) stay yours: set
   `expo.version` in the app repo. Only the build number is stamped per run.
