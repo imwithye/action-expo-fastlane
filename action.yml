@@ -48,7 +48,8 @@ inputs:
       "app-store" (default) or "ad-hoc". Both sign with the Apple
       Distribution certificate; ad-hoc pulls the adhoc profile from the cert
       repo instead and exports an IPA installable on registered devices.
-      Ad-hoc builds cannot upload to TestFlight — set upload to "false".
+      Ad-hoc builds cannot upload to TestFlight, so the default upload mode
+      ("auto") skips the upload for them.
     required: false
     default: "app-store"
   build-number:
@@ -56,9 +57,12 @@ inputs:
     required: false
     default: ""
   upload:
-    description: Upload the build to TestFlight ("true"/"false").
+    description: >-
+      TestFlight upload: "auto" (the default) uploads app-store builds and
+      skips ad-hoc builds; "true" forces the upload (an error with ad-hoc);
+      "false" never uploads.
     required: false
-    default: "true"
+    default: "auto"
   xcode-version:
     description: Xcode version to select (e.g. "26.4"). Empty keeps the runner default.
     required: false

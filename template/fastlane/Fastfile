@@ -43,7 +43,19 @@ platform :ios do
     UI.user_error!("No bundle identifier: set expo.ios.bundleIdentifier or the app-identifier input") unless identifier
     UI.user_error!("No Apple team id: set expo.ios.appleTeamId or the team-id input") unless ExpoConfig.team_id
 
-    upload = options.key?(:upload) ? options[:upload] : ENV["UPLOAD"] == "true"
+    # Lane option first (local runs: no option means no upload), then the
+    # UPLOAD env from the action, where "auto" means "upload when the
+    # distribution supports it" — so plain ad-hoc runs need no upload:false.
+    upload =
+      if options.key?(:upload)
+        options[:upload].to_s == "true"
+      else
+        case ENV["UPLOAD"].to_s
+        when "auto" then distribution == "app-store"
+        when "true" then true
+        else false
+        end
+      end
     build_number = (options[:build_number] || ExpoConfig.env("BUILD_NUMBER"))&.to_s
 
     api_key = nil

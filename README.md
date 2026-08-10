@@ -92,9 +92,9 @@ IPA downloadable from the run page.
 | `match-deploy-key` | no | | SSH private key that can read the cert repo |
 | `match-readonly` | no | `true` | `false` lets match create/repair certs and profiles (needs a write key) |
 | `working-directory` | no | `.` | Directory of the Expo project |
-| `distribution` | no | `app-store` | `ad-hoc` exports for registered devices (set `upload: false`) |
+| `distribution` | no | `app-store` | `ad-hoc` exports for registered devices instead |
 | `build-number` | no | `github.run_number` | CFBundleVersion for this build |
-| `upload` | no | `true` | Upload to TestFlight |
+| `upload` | no | `auto` | `auto` uploads app-store builds, skips ad-hoc; `true`/`false` force |
 | `xcode-version` | no | runner default | Xcode version to select |
 | `prebuild-command` | no | `npx expo prebuild --platform ios` | Command that generates `ios/` |
 | `app-identifier` | no | from Expo config | Bundle identifier override |
@@ -128,7 +128,8 @@ IPA downloadable from the run page.
   location still works.
 - **Ad-hoc builds:** `distribution: ad-hoc` signs against the cert repo's
   adhoc profile and exports an IPA installable on the devices registered in
-  the profile. TestFlight is app-store-only, so set `upload: false`. Seed
+  the profile. TestFlight is app-store-only, so the default
+  `upload: auto` skips the upload for ad-hoc builds on its own. Seed
   the profile once with `fastlane match adhoc` (or use `match-readonly:
   false`), and re-run that after registering new devices —
   `fastlane match adhoc --force_for_new_devices` picks them up.
