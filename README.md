@@ -21,22 +21,14 @@ repo needs no fastlane setup at all.
 
 ## Usage
 
+Every push to main builds and uploads to TestFlight:
+
 ```yaml
 name: release
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      upload:
-        description: "Upload to TestFlight"
-        type: boolean
-        default: false
-
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   ios:
@@ -45,16 +37,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install JS dependencies with whatever your project uses —
-      # the action expects node_modules to exist.
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-
-      # Optional but a big speedup: Xcode DerivedData + SwiftPM cache.
-      - uses: irgaly/xcode-cache@v1
-        with:
-          key: xcode-${{ hashFiles('bun.lock') }}
-          restore-keys: xcode-
+      # The action expects node_modules to exist.
+      - run: npm ci
 
       - uses: imwithye/action-expo-fastlane@v1
         with:
@@ -64,14 +48,13 @@ jobs:
           asc-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           asc-issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           asc-key-p8-base64: ${{ secrets.APP_STORE_CONNECT_KEY_P8 }}
-          upload: ${{ github.event_name == 'push' || inputs.upload }}
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ipa
-          path: "**/ios/build/ipa/*.ipa"
-          if-no-files-found: error
 ```
+
+That's the whole workflow. Worth adding as your project grows: a
+`concurrency` group so superseded pushes cancel, an Xcode DerivedData
+cache (e.g. `irgaly/xcode-cache`) for much faster archives, and an
+`actions/upload-artifact` step on the `ipa-path` output if you want the
+IPA downloadable from the run page.
 
 ## Prerequisites
 
