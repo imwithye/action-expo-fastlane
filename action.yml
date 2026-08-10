@@ -1,0 +1,133 @@
+name: "Expo iOS Fastlane Release"
+description: >-
+  Prebuild an Expo app, sign it with fastlane match against an encrypted
+  certificate repo, and export/upload the IPA to TestFlight.
+author: imwithye
+branding:
+  icon: upload-cloud
+  color: blue
+
+inputs:
+  working-directory:
+    description: Directory containing the Expo project (app.json, package.json).
+    required: false
+    default: "."
+  match-git-url:
+    description: >-
+      SSH URL of the encrypted fastlane match certificate repo,
+      e.g. git@github.com:you/applecert.git.
+    required: true
+  match-password:
+    description: Passphrase the certificate repo is encrypted with.
+    required: true
+  match-deploy-key:
+    description: >-
+      SSH private key with read access to the certificate repo (a deploy key
+      on that repo). Leave empty if the runner can already clone it.
+    required: false
+    default: ""
+  asc-key-id:
+    description: App Store Connect API key ID.
+    required: true
+  asc-issuer-id:
+    description: App Store Connect API issuer ID.
+    required: true
+  asc-key-p8-base64:
+    description: App Store Connect API key (.p8), base64-encoded.
+    required: true
+  build-number:
+    description: CFBundleVersion for this build. Defaults to github.run_number.
+    required: false
+    default: ""
+  upload:
+    description: Upload the build to TestFlight ("true"/"false").
+    required: false
+    default: "true"
+  xcode-version:
+    description: Xcode version to select (e.g. "26.4"). Empty keeps the runner default.
+    required: false
+    default: ""
+  prebuild-command:
+    description: Command that generates the ios/ project.
+    required: false
+    default: "npx expo prebuild --platform ios"
+  app-identifier:
+    description: Bundle identifier override. Defaults to expo.ios.bundleIdentifier.
+    required: false
+    default: ""
+  team-id:
+    description: Apple team ID override. Defaults to expo.ios.appleTeamId.
+    required: false
+    default: ""
+
+outputs:
+  ipa-path:
+    description: Absolute path of the exported IPA.
+    value: ${{ steps.release.outputs.ipa-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Select Xcode
+      if: inputs.xcode-version != ''
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: ${{ inputs.xcode-version }}
+
+    # The action ships a generic Gemfile + fastlane lane; drop them into the
+    # project so bundler and fastlane find them where they expect. Files the
+    # project already has win — a repo with its own fastlane/ keeps it.
+    - name: Install release scaffolding
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        for f in Gemfile Gemfile.lock .ruby-version; do
+          [ -e "$f" ] || cp "$ACTION_PATH/template/$f" "$f"
+        done
+        [ -e fastlane ] || cp -R "$ACTION_PATH/template/fastlane" fastlane
+
+    # Installs the Gemfile bundle (fastlane + CocoaPods) with its own gem cache.
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        working-directory: ${{ inputs.working-directory }}
+        bundler-cache: true
+
+    # match clones the certificate repo over SSH.
+    - name: Load the certificate repo deploy key
+      if: inputs.match-deploy-key != ''
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ inputs.match-deploy-key }}
+
+    - name: Archive, export & upload
+      id: release
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        MATCH_GIT_URL: ${{ inputs.match-git-url }}
+        MATCH_PASSWORD: ${{ inputs.match-password }}
+        ASC_KEY_ID: ${{ inputs.asc-key-id }}
+        ASC_ISSUER_ID: ${{ inputs.asc-issuer-id }}
+        ASC_KEY_P8_BASE64: ${{ inputs.asc-key-p8-base64 }}
+        APP_IDENTIFIER: ${{ inputs.app-identifier }}
+        APPLE_TEAM_ID: ${{ inputs.team-id }}
+        EXPO_PREBUILD_COMMAND: ${{ inputs.prebuild-command }}
+        INPUT_BUILD_NUMBER: ${{ inputs.build-number }}
+        INPUT_UPLOAD: ${{ inputs.upload }}
+      run: |
+        export BUILD_NUMBER="${INPUT_BUILD_NUMBER:-$GITHUB_RUN_NUMBER}"
+        args=("build_number:$BUILD_NUMBER")
+        if [ "$INPUT_UPLOAD" = "true" ]; then
+          args+=("upload:true")
+        fi
+        bundle exec fastlane ios release "${args[@]}"
+
+        ipa="$( { find ios/build/ipa -maxdepth 1 -name '*.ipa' 2>/dev/null || true; } | head -n 1)"
+        if [ -z "$ipa" ]; then
+          echo "::error::fastlane finished but no IPA was found in ios/build/ipa"
+          exit 1
+        fi
+        echo "ipa-path=$PWD/$ipa" >> "$GITHUB_OUTPUT"
