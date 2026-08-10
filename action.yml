@@ -26,6 +26,14 @@ inputs:
       on that repo). Leave empty if the runner can already clone it.
     required: false
     default: ""
+  match-readonly:
+    description: >-
+      When "true" (the default) match only downloads what the certificate
+      repo already holds. Set to "false" — with a deploy key that can write
+      to the repo — to let match create or repair missing certificates and
+      profiles from CI.
+    required: false
+    default: "true"
   asc-key-id:
     description: App Store Connect API key ID.
     required: true
@@ -109,6 +117,7 @@ runs:
       env:
         MATCH_GIT_URL: ${{ inputs.match-git-url }}
         MATCH_PASSWORD: ${{ inputs.match-password }}
+        MATCH_READONLY: ${{ inputs.match-readonly }}
         ASC_KEY_ID: ${{ inputs.asc-key-id }}
         ASC_ISSUER_ID: ${{ inputs.asc-issuer-id }}
         ASC_KEY_P8_BASE64: ${{ inputs.asc-key-p8-base64 }}

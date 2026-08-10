@@ -5,8 +5,10 @@
 # or edit it expecting the change to survive the next prebuild.
 #
 # Signing is fastlane match with manual signing. The encrypted certificate
-# repo comes from MATCH_GIT_URL; in CI match runs readonly and only downloads
-# what the repo already holds (needs MATCH_PASSWORD and SSH access).
+# repo comes from MATCH_GIT_URL; by default CI runs match readonly and only
+# downloads what the repo already holds (needs MATCH_PASSWORD and SSH
+# access). Set MATCH_READONLY=false — with a write deploy key — to let match
+# create or repair certificates and profiles from CI.
 #
 # App Store Connect API key (used by match and the TestFlight upload):
 #   ASC_KEY_ID, ASC_ISSUER_ID, and either ASC_KEY_P8_BASE64 (base64 of the
@@ -62,11 +64,15 @@ platform :ios do
 
     Dir.chdir(ROOT) { sh(ENV.fetch("EXPO_PREBUILD_COMMAND", "npx expo prebuild --platform ios")) }
 
+    # readonly by default in CI: only download what the cert repo already
+    # holds. With a write deploy key, MATCH_READONLY=false lets match create
+    # or repair the App Store profile right from CI (needs the ASC api key).
+    readonly = ENV["MATCH_READONLY"].nil? ? is_ci : ENV["MATCH_READONLY"] == "true"
     match(
       type: "appstore",
       git_url: ENV.fetch("MATCH_GIT_URL"),
       api_key: api_key,
-      readonly: is_ci
+      readonly: readonly
     )
 
     # Prebuild generates the project with automatic signing, which would mint

@@ -77,12 +77,16 @@ jobs:
 
 - **A seeded match repo.** From a laptop, run `fastlane match appstore` once
   (with a Matchfile or `--git_url`) so the repo holds an Apple Distribution
-  certificate and an App Store profile for your bundle id. CI only ever
+  certificate and an App Store profile for your bundle id. By default CI only
   downloads (`readonly`), so anything missing fails the build instead of
-  touching your Apple account.
-- **Repo access for CI.** Add a read-only deploy key to the cert repo and put
-  the private key in `MATCH_DEPLOY_KEY`. (Skip `match-deploy-key` if your
-  runner can already clone the repo.)
+  touching your Apple account. Alternatively, give CI a **write** deploy key
+  and set `match-readonly: false` — then match creates or repairs missing
+  certificates and profiles itself (useful when entitlements change), and no
+  manual seeding is needed.
+- **Repo access for CI.** Add a deploy key to the cert repo and put the
+  private key in `MATCH_DEPLOY_KEY` — read-only is enough unless you use
+  `match-readonly: false`. (Skip `match-deploy-key` if your runner can
+  already clone the repo.)
 - **An App Store Connect API key** with App Manager access:
   `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and the `.p8`
   base64-encoded in `APP_STORE_CONNECT_KEY_P8`
@@ -103,6 +107,7 @@ jobs:
 | `asc-issuer-id` | yes | | App Store Connect API issuer ID |
 | `asc-key-p8-base64` | yes | | The `.p8` key, base64-encoded |
 | `match-deploy-key` | no | | SSH private key that can read the cert repo |
+| `match-readonly` | no | `true` | `false` lets match create/repair certs and profiles (needs a write key) |
 | `working-directory` | no | `.` | Directory of the Expo project |
 | `build-number` | no | `github.run_number` | CFBundleVersion for this build |
 | `upload` | no | `true` | Upload to TestFlight |
