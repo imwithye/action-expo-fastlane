@@ -14,20 +14,35 @@
 #   ASC_KEY_ID, ASC_ISSUER_ID, and either ASC_KEY_P8_BASE64 (base64 of the
 #   .p8, what CI sets) or the .p8 sitting at the usual local path,
 #   ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8.
+#
+# Build number and upload arrive as env (BUILD_NUMBER, UPLOAD — what the
+# action sets); lane options (release build_number:42 upload:true) override
+# them for local runs.
+require File.join(__dir__, "expo_config.rb")
 
 default_platform(:ios)
 
-ROOT = File.expand_path("..", __dir__)
+ROOT = ExpoConfig::ROOT
 
 platform :ios do
   desc "Archive + export a signed IPA (release build_number:42 upload:true)"
   lane :release do |options|
     setup_ci if is_ci # fresh unlocked keychain for match to install into
 
+    # The Appfile sets the identifiers only when it can resolve them (its own
+    # raise would be swallowed by try_fetch_value), so validate here, up
+    # front, before any build work.
+    identifier = ExpoConfig.bundle_identifier
+    UI.user_error!("No bundle identifier: set expo.ios.bundleIdentifier or the app-identifier input") unless identifier
+    UI.user_error!("No Apple team id: set expo.ios.appleTeamId or the team-id input") unless ExpoConfig.team_id
+
+    upload = options.key?(:upload) ? options[:upload] : ENV["UPLOAD"] == "true"
+    build_number = (options[:build_number] || ExpoConfig.env("BUILD_NUMBER"))&.to_s
+
     api_key = nil
-    if ENV["ASC_KEY_ID"] && ENV["ASC_ISSUER_ID"]
+    if ExpoConfig.env("ASC_KEY_ID") && ExpoConfig.env("ASC_ISSUER_ID")
       key_file = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{ENV["ASC_KEY_ID"]}.p8")
-      if ENV["ASC_KEY_P8_BASE64"]
+      if ExpoConfig.env("ASC_KEY_P8_BASE64")
         api_key = app_store_connect_api_key(
           key_id: ENV["ASC_KEY_ID"],
           issuer_id: ENV["ASC_ISSUER_ID"],
@@ -42,27 +57,26 @@ platform :ios do
         )
       end
     end
+    # Fail before the 20-minute archive, not after it.
+    UI.user_error!("upload:true needs the ASC_* API key variables set") if upload && api_key.nil?
 
-    # The build number ships from the Expo config — prebuild bakes it into the
-    # project — so set it before prebuild rather than with agvtool after.
-    # app.config.js/ts projects have no file to edit; they must map
-    # ios.buildNumber from the BUILD_NUMBER env var themselves.
-    if options[:build_number]
-      app_json = File.join(ROOT, "app.json")
-      if File.exist?(app_json)
-        json = JSON.parse(File.read(app_json))
-        cfg = json["expo"] || json
-        (cfg["ios"] ||= {})["buildNumber"] = options[:build_number].to_s
-        File.write(app_json, JSON.pretty_generate(json) + "\n")
-      else
-        UI.important(
-          "No app.json to stamp — make app.config.js set " \
-          "ios.buildNumber from process.env.BUILD_NUMBER"
-        )
-      end
+    if build_number && !ExpoConfig.stamp_build_number(build_number)
+      UI.important(
+        "No app.json to stamp — make app.config.js set " \
+        "ios.buildNumber from process.env.BUILD_NUMBER"
+      )
     end
 
     Dir.chdir(ROOT) { sh(ENV.fetch("EXPO_PREBUILD_COMMAND", "npx expo prebuild --platform ios")) }
+
+    xcodeproj = Dir[File.join(ROOT, "ios/*.xcodeproj")].first
+    workspace = Dir[File.join(ROOT, "ios/*.xcworkspace")].first
+    unless xcodeproj && workspace
+      UI.user_error!(
+        "prebuild produced no ios/*.xcworkspace — " \
+        "does the prebuild command run pod install?"
+      )
+    end
 
     # readonly by default in CI: only download what the cert repo already
     # holds. With a write deploy key, MATCH_READONLY=false lets match create
@@ -78,10 +92,9 @@ platform :ios do
     # Prebuild generates the project with automatic signing, which would mint
     # a throwaway development certificate on every CI run; flip it to the
     # match certificate + profile so the archive needs no Apple session.
-    identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
     profiles = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
     update_code_signing_settings(
-      path: Dir[File.join(ROOT, "ios/*.xcodeproj")].first,
+      path: xcodeproj,
       use_automatic_signing: false,
       code_sign_identity: "Apple Distribution",
       profile_name: profiles[identifier]
@@ -89,7 +102,6 @@ platform :ios do
 
     # Expo names workspace and scheme after expo.name, so derive them
     # (e.g. "Pet Trace" -> PetTrace.xcworkspace, scheme PetTrace).
-    workspace = Dir[File.join(ROOT, "ios/*.xcworkspace")].first
     build_app(
       workspace: workspace,
       scheme: File.basename(workspace, ".xcworkspace"),
@@ -99,8 +111,7 @@ platform :ios do
       output_directory: File.join(ROOT, "ios/build/ipa")
     )
 
-    if options[:upload]
-      UI.user_error!("upload:true needs the ASC_* API key variables set") unless api_key
+    if upload
       upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
     else
       UI.message("Skipping TestFlight upload (pass upload:true to enable).")

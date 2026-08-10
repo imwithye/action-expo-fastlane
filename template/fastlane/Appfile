@@ -1,26 +1,14 @@
 # The Expo config is the source of truth for the identifiers — read it rather
-# than repeating them here and letting the two drift. Projects using
-# app.config.js/ts have no static app.json, so fall back to letting Expo
-# resolve the config itself. Either value can be overridden via env
-# (APP_IDENTIFIER / APPLE_TEAM_ID), which the action exposes as inputs.
-require "json"
+# than repeating them here and letting the two drift (env overrides
+# APP_IDENTIFIER / APPLE_TEAM_ID come from the action's inputs).
+#
+# Values are set only when resolved; the Fastfile validates them and raises
+# the actionable error. Raising here would be useless — fastlane reads the
+# Appfile through try_fetch_value, which swallows exceptions.
+require File.join(__dir__, "expo_config.rb")
 
-root = File.expand_path("..", __dir__)
-app_json = File.join(root, "app.json")
+identifier = ExpoConfig.bundle_identifier
+team = ExpoConfig.team_id
 
-expo =
-  if File.exist?(app_json)
-    json = JSON.parse(File.read(app_json))
-    json["expo"] || json
-  else
-    JSON.parse(Dir.chdir(root) { `npx expo config --json` })
-  end
-
-identifier = ENV["APP_IDENTIFIER"] || expo.dig("ios", "bundleIdentifier")
-team = ENV["APPLE_TEAM_ID"] || expo.dig("ios", "appleTeamId")
-
-raise "No bundle identifier: set expo.ios.bundleIdentifier or the app-identifier input" if identifier.to_s.empty?
-raise "No Apple team id: set expo.ios.appleTeamId or the team-id input" if team.to_s.empty?
-
-app_identifier(identifier)
-team_id(team)
+app_identifier(identifier) if identifier
+team_id(team) if team

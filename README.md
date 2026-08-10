@@ -132,9 +132,15 @@ jobs:
   ios: { buildNumber: process.env.BUILD_NUMBER ?? "1" }
   ```
 
-- **Bring your own fastlane.** Files the project already has (`fastlane/`,
-  `Gemfile`, `.ruby-version`) are left untouched, so you can replace the
-  bundled lane wholesale — the action then just provides Ruby, the deploy
-  key, and the env plumbing, and runs `bundle exec fastlane ios release`.
+- **Bring your own fastlane.** Anything the project already has wins: a
+  project `fastlane/` replaces the bundled lane wholesale, a project
+  `Gemfile` keeps its whole bundle (the template `Gemfile.lock` is then not
+  copied either — but your Gemfile must provide `fastlane` and `cocoapods`),
+  and a project `.ruby-version` picks the Ruby. The action then just
+  provides Ruby, the deploy key, and the env plumbing
+  (`MATCH_*`, `ASC_*`, `BUILD_NUMBER`, `UPLOAD`, `EXPO_PREBUILD_COMMAND`),
+  and runs `bundle exec fastlane ios release`. The `ipa-path` output is
+  found by searching the working directory for `*.ipa`, so a custom output
+  location still works.
 - **Version bumps** (`CFBundleShortVersionString`) stay yours: set
   `expo.version` in the app repo. Only the build number is stamped per run.

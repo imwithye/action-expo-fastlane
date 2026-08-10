@@ -83,17 +83,21 @@ runs:
         xcode-version: ${{ inputs.xcode-version }}
 
     # The action ships a generic Gemfile + fastlane lane; drop them into the
-    # project so bundler and fastlane find them where they expect. Files the
-    # project already has win — a repo with its own fastlane/ keeps it.
+    # project so bundler and fastlane find them where they expect. What the
+    # project already has wins — a repo with its own fastlane/ keeps it, and
+    # a repo with its own Gemfile keeps its whole bundle (Gemfile.lock
+    # included; a template lock next to a foreign Gemfile would only break
+    # bundler). Such a Gemfile must provide fastlane and cocoapods itself.
     - name: Install release scaffolding
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
         ACTION_PATH: ${{ github.action_path }}
       run: |
-        for f in Gemfile Gemfile.lock .ruby-version; do
-          [ -e "$f" ] || cp "$ACTION_PATH/template/$f" "$f"
-        done
+        if [ ! -e Gemfile ]; then
+          cp "$ACTION_PATH/template/Gemfile" "$ACTION_PATH/template/Gemfile.lock" .
+        fi
+        [ -e .ruby-version ] || cp "$ACTION_PATH/template/.ruby-version" .
         [ -e fastlane ] || cp -R "$ACTION_PATH/template/fastlane" fastlane
 
     # Installs the Gemfile bundle (fastlane + CocoaPods) with its own gem cache.
@@ -124,19 +128,20 @@ runs:
         APP_IDENTIFIER: ${{ inputs.app-identifier }}
         APPLE_TEAM_ID: ${{ inputs.team-id }}
         EXPO_PREBUILD_COMMAND: ${{ inputs.prebuild-command }}
-        INPUT_BUILD_NUMBER: ${{ inputs.build-number }}
-        INPUT_UPLOAD: ${{ inputs.upload }}
+        BUILD_NUMBER: ${{ inputs.build-number || github.run_number }}
+        UPLOAD: ${{ inputs.upload }}
       run: |
-        export BUILD_NUMBER="${INPUT_BUILD_NUMBER:-$GITHUB_RUN_NUMBER}"
-        args=("build_number:$BUILD_NUMBER")
-        if [ "$INPUT_UPLOAD" = "true" ]; then
-          args+=("upload:true")
-        fi
-        bundle exec fastlane ios release "${args[@]}"
+        bundle exec fastlane ios release
 
-        ipa="$( { find ios/build/ipa -maxdepth 1 -name '*.ipa' 2>/dev/null || true; } | head -n 1)"
-        if [ -z "$ipa" ]; then
-          echo "::error::fastlane finished but no IPA was found in ios/build/ipa"
-          exit 1
+        # Locate the exported IPA for the ipa-path output. The bundled lane
+        # writes to ios/build/ipa, but a project-provided lane may export
+        # anywhere — so search, and only warn when nothing turns up (the lane
+        # itself already succeeded, and may have uploaded to TestFlight).
+        ipa="$( { find . \( -name node_modules -o -name Pods \) -prune \
+                  -o -name '*.ipa' -print 2>/dev/null || true; } | head -n 1)"
+        if [ -n "$ipa" ]; then
+          echo "ipa-path=$PWD/${ipa#./}" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::no .ipa found under $PWD; ipa-path output left empty"
+          echo "ipa-path=" >> "$GITHUB_OUTPUT"
         fi
-        echo "ipa-path=$PWD/$ipa" >> "$GITHUB_OUTPUT"
