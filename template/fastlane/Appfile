@@ -5,7 +5,13 @@
 # Values are set only when resolved; the Fastfile validates them and raises
 # the actionable error. Raising here would be useless — fastlane reads the
 # Appfile through try_fetch_value, which swallows exceptions.
-require File.join(__dir__, "expo_config.rb")
+#
+# fastlane evaluates this file with a bare eval (no filename), so __dir__ is
+# nil here; fall back to finding expo_config.rb from the working directory
+# (fastlane runs from the project root).
+dir = [__dir__, File.join(Dir.pwd, "fastlane"), Dir.pwd].compact
+      .find { |d| File.exist?(File.join(d, "expo_config.rb")) }
+require File.join(dir, "expo_config.rb") if dir
 
 identifier = ExpoConfig.bundle_identifier
 team = ExpoConfig.team_id
