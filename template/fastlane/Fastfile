@@ -79,9 +79,9 @@ platform :ios do
         ENV["DEV_CLIENT"].to_s == "true"
       end
     if dev_client && !ExpoConfig.dependency?("expo-dev-client")
-      UI.important(
-        "dev_client is on but expo-dev-client is not a dependency — the Debug " \
-        "build will have no dev launcher and no embedded JS bundle. " \
+      UI.user_error!(
+        "dev_client needs expo-dev-client: without it the Debug build has no " \
+        "dev launcher and no embedded JS bundle, so the app cannot start. " \
         "Run: npx expo install expo-dev-client"
       )
     end

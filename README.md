@@ -143,6 +143,10 @@ IPA downloadable from the run page.
   expo-dev-client launcher and loads the bundle from a Metro server
   (`npx expo start --dev-client`) or an EAS Update branch. The project must
   depend on `expo-dev-client` (`npx expo install expo-dev-client`) — without
-  it the build has no launcher and nothing to run.
+  it the build has no launcher and nothing to run, so the lane stops before
+  archiving. The name and bundle identifier are untouched, so the dev client
+  installs over the real app rather than alongside it — to tell them apart or
+  keep both, set the name and `ios.bundleIdentifier` yourself from the
+  exported `DEV_CLIENT` in an `app.config.js`.
 - **Version bumps** (`CFBundleShortVersionString`) stay yours: set
   `expo.version` in the app repo. Only the build number is stamped per run.

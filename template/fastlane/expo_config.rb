@@ -62,7 +62,13 @@ module ExpoConfig
     json = JSON.parse(File.read(app_json_path))
     cfg = json["expo"] || json
     (cfg["ios"] ||= {})["buildNumber"] = build_number
-    File.write(app_json_path, JSON.pretty_generate(json) + "\n")
+    write_app_json(json)
     true
   end
+
+  def self.write_app_json(json)
+    File.write(app_json_path, JSON.pretty_generate(json) + "\n")
+    @config = nil # the memo is now stale
+  end
+  private_class_method :write_app_json
 end
