@@ -31,6 +31,20 @@ module ExpoConfig
       end
   end
 
+  def self.package_json
+    @package_json ||=
+      begin
+        path = File.join(ROOT, "package.json")
+        File.exist?(path) ? JSON.parse(File.read(path)) : {}
+      end
+  end
+
+  # True when the app depends on the package directly (a transitive copy in
+  # node_modules is not enough — the native module has to be autolinked).
+  def self.dependency?(name)
+    %w[dependencies devDependencies].any? { |group| package_json[group].is_a?(Hash) && package_json[group].key?(name) }
+  end
+
   def self.bundle_identifier
     env("APP_IDENTIFIER") || config.dig("ios", "bundleIdentifier")
   end

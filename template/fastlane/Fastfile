@@ -15,9 +15,9 @@
 #   .p8, what CI sets) or the .p8 sitting at the usual local path,
 #   ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8.
 #
-# Build number and upload arrive as env (BUILD_NUMBER, UPLOAD — what the
-# action sets); lane options (release build_number:42 upload:true) override
-# them for local runs.
+# Build number, upload and dev client arrive as env (BUILD_NUMBER, UPLOAD,
+# DEV_CLIENT — what the action sets); lane options (release build_number:42
+# upload:true) override them for local runs.
 require File.join(__dir__, "expo_config.rb")
 
 default_platform(:ios)
@@ -25,7 +25,7 @@ default_platform(:ios)
 ROOT = ExpoConfig::ROOT
 
 platform :ios do
-  desc "Archive + export a signed IPA (release build_number:42 upload:true distribution:ad-hoc)"
+  desc "Archive + export a signed IPA (release build_number:42 upload:true distribution:ad-hoc dev_client:true)"
   lane :release do |options|
     # readonly by default in CI: only download what the cert repo already
     # holds. With a write deploy key, MATCH_READONLY=false lets match create
@@ -66,6 +66,25 @@ platform :ios do
         end
       end
     build_number = (options[:build_number] || ExpoConfig.env("BUILD_NUMBER"))&.to_s
+
+    # A dev-client build is just the Debug configuration archived with the
+    # same distribution signing: React Native's bundling phase is a no-op in
+    # Debug, so the IPA ships no JS and expo-dev-client loads it from a Metro
+    # server instead. Works with either distribution — the export method and
+    # profile are unchanged.
+    dev_client =
+      if options.key?(:dev_client)
+        options[:dev_client].to_s == "true"
+      else
+        ENV["DEV_CLIENT"].to_s == "true"
+      end
+    if dev_client && !ExpoConfig.dependency?("expo-dev-client")
+      UI.important(
+        "dev_client is on but expo-dev-client is not a dependency — the Debug " \
+        "build will have no dev launcher and no embedded JS bundle. " \
+        "Run: npx expo install expo-dev-client"
+      )
+    end
 
     api_key = nil
     if ExpoConfig.env("ASC_KEY_ID") && ExpoConfig.env("ASC_ISSUER_ID")
@@ -130,7 +149,7 @@ platform :ios do
     build_app(
       workspace: workspace,
       scheme: File.basename(workspace, ".xcworkspace"),
-      configuration: "Release",
+      configuration: dev_client ? "Debug" : "Release",
       export_method: distribution,
       export_options: { provisioningProfiles: profiles },
       output_directory: File.join(ROOT, "ios/build/ipa")

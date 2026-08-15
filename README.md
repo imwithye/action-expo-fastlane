@@ -93,6 +93,7 @@ IPA downloadable from the run page.
 | `match-readonly` | no | `true` | `false` lets match create/repair certs and profiles (needs a write key) |
 | `working-directory` | no | `.` | Directory of the Expo project |
 | `distribution` | no | `app-store` | `ad-hoc` exports for registered devices instead |
+| `dev-client` | no | `false` | `true` archives Debug, producing an expo-dev-client build |
 | `build-number` | no | `github.run_number` | CFBundleVersion for this build |
 | `upload` | no | `auto` | `auto` uploads app-store builds, skips ad-hoc; `true`/`false` force |
 | `xcode-version` | no | runner default | Xcode version to select |
@@ -122,7 +123,8 @@ IPA downloadable from the run page.
   copied either — but your Gemfile must provide `fastlane` and `cocoapods`),
   and a project `.ruby-version` picks the Ruby. The action then just
   provides Ruby, the deploy key, and the env plumbing
-  (`MATCH_*`, `ASC_*`, `BUILD_NUMBER`, `UPLOAD`, `EXPO_PREBUILD_COMMAND`),
+  (`MATCH_*`, `ASC_*`, `BUILD_NUMBER`, `UPLOAD`, `DISTRIBUTION`,
+  `DEV_CLIENT`, `EXPO_PREBUILD_COMMAND`),
   and runs `bundle exec fastlane ios release`. The `ipa-path` output is
   found by searching the working directory for `*.ipa`, so a custom output
   location still works.
@@ -133,5 +135,14 @@ IPA downloadable from the run page.
   the profile once with `fastlane match adhoc` (or use `match-readonly:
   false`), and re-run that after registering new devices —
   `fastlane match adhoc --force_for_new_devices` picks them up.
+- **Dev client builds:** `dev-client: true` archives the `Debug`
+  configuration instead of `Release`. Signing and export are untouched, so it
+  combines with either distribution — an ad-hoc dev client for testers'
+  devices, or an app-store one for TestFlight. Debug turns React Native's
+  bundling phase into a no-op, so the IPA carries no JS: the app opens the
+  expo-dev-client launcher and loads the bundle from a Metro server
+  (`npx expo start --dev-client`) or an EAS Update branch. The project must
+  depend on `expo-dev-client` (`npx expo install expo-dev-client`) — without
+  it the build has no launcher and nothing to run.
 - **Version bumps** (`CFBundleShortVersionString`) stay yours: set
   `expo.version` in the app repo. Only the build number is stamped per run.
