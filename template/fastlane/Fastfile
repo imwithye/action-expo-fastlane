@@ -19,14 +19,23 @@
 # DEV_CLIENT — what the action sets); lane options (release build_number:42
 # upload:true) override them for local runs.
 require "pathname"
-require File.join(__dir__, "expo_config.rb")
+
+# fastlane parses this file with `eval` under a relative filename, so __dir__
+# is "." here, not the lane directory (the Appfile has it worse: nil). Find
+# expo_config.rb from the working directory — fastlane parses from the
+# fastlane folder — and take every real path from ExpoConfig, where __dir__
+# resolves properly because it is a required file.
+lane_dir = [__dir__, File.join(Dir.pwd, "fastlane"), Dir.pwd].compact
+           .find { |d| File.exist?(File.join(d, "expo_config.rb")) }
+raise "expo_config.rb not found next to the Fastfile (looked from #{Dir.pwd})" unless lane_dir
+require File.join(lane_dir, "expo_config.rb")
 
 default_platform(:ios)
 
 ROOT = ExpoConfig::ROOT
 # Icon for dev-client builds, shipped next to this lane. Expo resolves icon
 # paths against the project root, so hand it the relative one.
-DEV_ICON = Pathname.new(File.join(__dir__, "dev-icon.png")).relative_path_from(Pathname.new(ROOT)).to_s
+DEV_ICON = Pathname.new(ExpoConfig::LANE_DIR).relative_path_from(Pathname.new(ROOT)).join("dev-icon.png").to_s
 
 platform :ios do
   desc "Archive + export a signed IPA (release build_number:42 upload:true distribution:ad-hoc dev_client:true)"

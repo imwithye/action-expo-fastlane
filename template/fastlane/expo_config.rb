@@ -7,7 +7,11 @@
 require "json"
 
 module ExpoConfig
-  ROOT = File.expand_path("..", __dir__)
+  # This file is `require`d as a real file, so __dir__ is the lane directory —
+  # unlike the Fastfile and Appfile, which fastlane evaluates through `eval`
+  # and where __dir__ is "." / nil. Both take their paths from here.
+  LANE_DIR = __dir__
+  ROOT = File.expand_path("..", LANE_DIR)
 
   # The action exports its inputs unconditionally, so an unset input arrives
   # as an empty string — treat that the same as absent.
