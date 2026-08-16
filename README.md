@@ -93,7 +93,7 @@ IPA downloadable from the run page.
 | `match-readonly` | no | `true` | `false` lets match create/repair certs and profiles (needs a write key) |
 | `working-directory` | no | `.` | Directory of the Expo project |
 | `distribution` | no | `app-store` | `ad-hoc` exports for registered devices instead |
-| `dev-client` | no | `false` | `true` archives Debug, producing an expo-dev-client build |
+| `dev-client` | no | `false` | `true` archives Debug, producing an expo-dev-client build with its own icon |
 | `build-number` | no | `github.run_number` | CFBundleVersion for this build |
 | `upload` | no | `auto` | `auto` uploads app-store builds, skips ad-hoc; `true`/`false` force |
 | `xcode-version` | no | runner default | Xcode version to select |
@@ -144,9 +144,19 @@ IPA downloadable from the run page.
   (`npx expo start --dev-client`) or an EAS Update branch. The project must
   depend on `expo-dev-client` (`npx expo install expo-dev-client`) — without
   it the build has no launcher and nothing to run, so the lane stops before
-  archiving. The name and bundle identifier are untouched, so the dev client
-  installs over the real app rather than alongside it — to tell them apart or
-  keep both, set the name and `ios.bundleIdentifier` yourself from the
-  exported `DEV_CLIENT` in an `app.config.js`.
+  archiving. The bundle identifier is untouched, so the dev client installs
+  *over* the real app rather than alongside it — which is why the build gets
+  its own icon (`fastlane/dev-icon.png`, shipped with the lane): on the home
+  screen that icon is what says which of the two is currently installed. It
+  is applied by pointing `icon` **and** `ios.icon` at it before prebuild —
+  `ios.icon` overrides the top-level `icon` and may itself hold
+  `light`/`dark`/`tinted` variants, so it is replaced wholesale. Swap the PNG
+  for your own to change it. With an `app.config.js` there is no file to
+  edit — set both keys yourself from the exported `DEV_CLIENT`:
+
+  ```js
+  const dev = process.env.DEV_CLIENT === "true";
+  icon: dev ? "./assets/dev-icon.png" : "./assets/icon.png",
+  ```
 - **Version bumps** (`CFBundleShortVersionString`) stay yours: set
   `expo.version` in the app repo. Only the build number is stamped per run.

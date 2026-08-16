@@ -56,7 +56,7 @@ inputs:
     description: >-
       When "true", archive the Debug configuration instead of Release, so the
       IPA is an expo-dev-client build that loads JS from a Metro server
-      instead of an embedded bundle.
+      instead of an embedded bundle, and carries a "Dev Client" icon.
       Signing and export are unchanged, so it works with either distribution.
       The project must depend on expo-dev-client, or the build fails.
     required: false

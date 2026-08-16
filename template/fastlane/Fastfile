@@ -18,11 +18,15 @@
 # Build number, upload and dev client arrive as env (BUILD_NUMBER, UPLOAD,
 # DEV_CLIENT — what the action sets); lane options (release build_number:42
 # upload:true) override them for local runs.
+require "pathname"
 require File.join(__dir__, "expo_config.rb")
 
 default_platform(:ios)
 
 ROOT = ExpoConfig::ROOT
+# Icon for dev-client builds, shipped next to this lane. Expo resolves icon
+# paths against the project root, so hand it the relative one.
+DEV_ICON = Pathname.new(File.join(__dir__, "dev-icon.png")).relative_path_from(Pathname.new(ROOT)).to_s
 
 platform :ios do
   desc "Archive + export a signed IPA (release build_number:42 upload:true distribution:ad-hoc dev_client:true)"
@@ -113,6 +117,20 @@ platform :ios do
         "No app.json to stamp — make app.config.js set " \
         "ios.buildNumber from process.env.BUILD_NUMBER"
       )
+    end
+
+    # Mark the dev client with its own icon: it shares the real app's bundle
+    # identifier, so it installs over it — the icon is what tells a tester
+    # which of the two is on the device.
+    if dev_client
+      if !File.exist?(File.join(ROOT, DEV_ICON))
+        UI.important("No #{DEV_ICON} — keeping the app's own icon")
+      elsif !ExpoConfig.set_icon(DEV_ICON)
+        UI.important(
+          "No app.json to edit — make app.config.js set icon and ios.icon " \
+          "from process.env.DEV_CLIENT"
+        )
+      end
     end
 
     Dir.chdir(ROOT) { sh(ENV.fetch("EXPO_PREBUILD_COMMAND", "npx expo prebuild --platform ios")) }

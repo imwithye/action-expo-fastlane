@@ -66,6 +66,24 @@ module ExpoConfig
     true
   end
 
+  # Points the app icon at path (relative to the project root) — prebuild
+  # generates the whole AppIcon set from it, flattening the alpha channel
+  # onto white the way the App Store requires.
+  #
+  # ios.icon overrides the top-level icon, and can itself be either a path or
+  # a { light, dark, tinted } object, so it is replaced wholesale with the
+  # single path rather than merged: every appearance gets the same icon.
+  # Returns false when there is no app.json to edit (dynamic config).
+  def self.set_icon(path)
+    return false unless File.exist?(app_json_path)
+    json = JSON.parse(File.read(app_json_path))
+    cfg = json["expo"] || json
+    cfg["icon"] = path
+    (cfg["ios"] ||= {})["icon"] = path
+    write_app_json(json)
+    true
+  end
+
   def self.write_app_json(json)
     File.write(app_json_path, JSON.pretty_generate(json) + "\n")
     @config = nil # the memo is now stale
