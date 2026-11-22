@@ -131,7 +131,7 @@ runs:
     # match clones the certificate repo over SSH.
     - name: Load the certificate repo deploy key
       if: inputs.match-deploy-key != ''
-      uses: webfactory/ssh-agent@v0.9.0
+      uses: webfactory/ssh-agent@v0.10.0
       with:
         ssh-private-key: ${{ inputs.match-deploy-key }}
 
