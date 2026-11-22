@@ -35,7 +35,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # The action expects node_modules to exist.
       - run: npm ci
